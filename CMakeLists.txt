@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.7)
-
+set(CMAKE_SYSTEM_VERSION 5.1)
 project(file)
+set(SupportWinXP "true")
+include("VC-LTL helper for cmake.cmake")
+set(CMAKE_C_FLAGS_DEBUG /MTd)
+set(CMAKE_C_FLAGS_RELEASE /MT)
 
 function(cat IN_FILE OUT_FILE)
   file(READ ${IN_FILE} CONTENTS)
@@ -8,6 +12,11 @@ function(cat IN_FILE OUT_FILE)
 endfunction()
 
 set(FILE_VERSION 5.44)
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+set(NODE_TARGET x64)
+else()
+set(NODE_TARGET x86)
+endif()
 
 set(WIN_COMPAT_SOURCES 
   file/src/asctime_r.c
@@ -74,17 +83,27 @@ STRING(CONCAT TEST_C_CONTENT_NEW "#include <getopt.h>\n" "${TEST_C_CONTENT}")
 FILE(WRITE file/tests/test.c "${TEST_C_CONTENT_NEW}")
 
 
+SET(OBJS
+  objs/${NODE_TARGET}/YY_Thunks_for_WinXP.obj
+)
+SET_SOURCE_FILES_PROPERTIES(
+  ${OBJS}
+  PROPERTIES
+  EXTERNAL_OBJECT true
+  GENERATED true
+)
+
 add_definitions(-DHAVE_CONFIG_H -DVERSION="${FILE_VERSION}" -DWIN32_LEAN_AND_MEAN -DWIN32 -DPCRE2_STATIC )
-add_library(libmagic SHARED ${LIBMAGIC_SOURCE_FILES})
+add_library(libmagic SHARED ${OBJS} ${LIBMAGIC_SOURCE_FILES})
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/win-headers pcre2/src file/src dirent/include getopt)
 target_link_libraries(libmagic pcre2-posix shlwapi)
-
 add_subdirectory(pcre2)
 
 # copy /pcre2posix.h to regex.h so it can be used as posix regex libary
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pcre2/src/pcre2posix.h ${CMAKE_CURRENT_SOURCE_DIR}/pcre2/src/regex.h COPYONLY)
 
-add_executable(file file/src/file.c)
+add_executable(file ${OBJS} file/src/file.c)
+
 add_executable(file_test file/tests/test.c)
 target_link_libraries(file_test libmagic pcre2-posix shlwapi)
 target_link_libraries(file libmagic pcre2-posix shlwapi)
